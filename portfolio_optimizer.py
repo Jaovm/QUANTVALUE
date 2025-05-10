@@ -2,7 +2,6 @@ import numpy as np
 from scipy.optimize import minimize
 
 def optimize_portfolio(expected_returns, cov_matrix, current_weights, min_weights, max_weights, risk_free=0.02):
-    """Otimiza o portfólio respeitando restrições institucionais"""
     n = len(expected_returns)
     x0 = np.array(current_weights)
     cons = [{'type': 'eq', 'fun': lambda x: np.sum(x) - 1}]
