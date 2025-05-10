@@ -8,9 +8,24 @@ from econometric_models import estimate_arima_forecast, estimate_garch_volatilit
 from portfolio_optimizer import optimize_portfolio
 
 def download_prices(tickers, start="2015-01-01", end=None):
+    import pandas as pd
+    import yfinance as yf
+    from datetime import datetime
     if end is None:
         end = datetime.today().strftime('%Y-%m-%d')
-    data = yf.download(tickers, start=start, end=end, progress=False)['Adj Close']
+    data = yf.download(tickers, start=start, end=end, progress=False)
+    # Verifica se há MultiIndex (caso vários ativos)
+    if isinstance(data.columns, pd.MultiIndex):
+        if "Adj Close" in data.columns.levels[0]:
+            data = data["Adj Close"]
+        else:
+            # Tenta usar 'Close' se 'Adj Close' não estiver disponível
+            data = data["Close"]
+    elif "Adj Close" in data.columns:
+        data = data["Adj Close"]
+    elif "Close" in data.columns:
+        data = data["Close"]
+    # Caso apenas uma série, transforma em DataFrame
     if isinstance(data, pd.Series):
         data = data.to_frame()
     return data.dropna(how='all')
