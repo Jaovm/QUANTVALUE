@@ -1,4 +1,3 @@
-# streamlit_appv1.py
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -6,7 +5,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 from datetime import datetime
 
-# --- Importação dos módulos plug-and-play ---
 from financial_analyzerv2 import (
     download_prices,
     get_fundamentals_yahoo,
@@ -14,35 +12,28 @@ from financial_analyzerv2 import (
     otimizar_portfolio_institucional,
 )
 
-# --- Configuração da página ---
 st.set_page_config(layout="wide")
 st.title("QUANTOVITZ 2.0 — Otimização Institucional de Carteiras")
 
-# --- Sidebar: Entradas do Usuário ---
 st.sidebar.header("Entradas do Usuário")
 
-# 1. Carteira Atual
 st.sidebar.subheader("1. Carteira Atual")
 ativos_input_str = st.sidebar.text_input("Ativos da carteira (ex: PETR4.SA,VALE3.SA,ITUB4.SA)", "PETR4.SA,VALE3.SA,ITUB4.SA")
 pesos_input_str = st.sidebar.text_input("Pesos percentuais (ex: 40,30,30)", "40,30,30")
 valor_total_carteira_atual = st.sidebar.number_input("Valor total da carteira atual (R$)", min_value=0.0, value=100000.0, step=1000.0)
 
-# 2. Novo Aporte (Opcional)
 st.sidebar.subheader("2. Novo Aporte (Opcional)")
 novo_capital_input = st.sidebar.number_input("Novo capital a ser aportado (R$)", min_value=0.0, value=10000.0, step=100.0)
 
-# 3. Ativos Candidatos (Opcional)
 st.sidebar.subheader("3. Ativos Candidatos (Opcional)")
 candidatos_input_str = st.sidebar.text_input("Ativos candidatos à entrada (ex: MGLU3.SA,VIIA3.SA)", "MGLU3.SA,VIIA3.SA")
 
-# 4. Modelo de Otimização
 st.sidebar.subheader("4. Modelo de Otimização")
 modelo_selecionado = st.sidebar.selectbox(
     "Escolha o modelo",
     ("Somente Quant-Value", "Quant-Value + Fronteira Eficiente", "Quant-Value + Fronteira Eficiente + Econometria")
 )
 
-# 5. Pesos das Métricas Fundamentalistas
 st.sidebar.subheader("5. Pesos das Métricas Fundamentalistas")
 pesos_metricas = {}
 pesos_metricas['ROE'] = st.sidebar.slider("Peso ROE (%)", 0, 100, 25) / 100.0
@@ -56,14 +47,12 @@ if soma_pesos_metricas == 0:
 elif abs(soma_pesos_metricas - 1.0) > 1e-6:
     st.sidebar.warning(f"A soma dos pesos das métricas ({soma_pesos_metricas*100:.0f}%) não é 100%. Eles serão normalizados.")
 
-# 6. Limites de Alocação (Opcional)
 st.sidebar.subheader("6. Limites de Alocação por Ativo (Opcional)")
 min_aloc_ativo = st.sidebar.slider("Alocação Mínima por Ativo (%)", 0, 100, 0) / 100.0
 max_aloc_ativo = st.sidebar.slider("Alocação Máxima por Ativo (%)", 0, 100, 50) / 100.0
 
 run_analysis = st.sidebar.button("Executar Análise")
 
-# --- Funções para Visualização ---
 def plot_quant_value_scores(df_scores):
     if df_scores.empty:
         st.write("Não há dados de Score Quant-Value para exibir.")
@@ -93,7 +82,6 @@ def display_comparative_table(carteiras_data):
     df_comparativo_display = df_comparativo_display.set_index('Nome')
     st.subheader("Tabela Comparativa de Carteiras")
     st.dataframe(df_comparativo_display.style.format("{:.2f}"))
-    # Detalhe dos pesos
     st.subheader("Composição Detalhada das Carteiras (%)")
     todos_ativos_pesos = set()
     for c in carteiras_data:
@@ -110,7 +98,6 @@ def display_comparative_table(carteiras_data):
     st.dataframe(df_pesos_detalhados.style.format("{:.2f}"))
 
 def plot_efficient_frontier(mu, cov, min_w, max_w, n_points=40, mark_portfolios=None):
-    # Gera pontos da fronteira eficiente
     mus = np.linspace(mu.min(), mu.max(), n_points)
     results = []
     n = len(mu)
@@ -119,15 +106,14 @@ def plot_efficient_frontier(mu, cov, min_w, max_w, n_points=40, mark_portfolios=
                 {'type': 'eq', 'fun': lambda x: np.dot(x, mu) - target_return}]
         bnds = tuple((min_w, max_w) for _ in range(n))
         x0 = np.ones(n) / n
-        res = None
         try:
             res = minimize(lambda x: np.sqrt(np.dot(x, np.dot(cov, x))), x0, bounds=bnds, constraints=cons)
         except Exception:
-            pass
+            continue
         if res is not None and res.success:
             results.append((res.fun, target_return, res.x))
     if not results:
-        st.warning("Não foi possível gerar a Fronteira Eficiente.")
+        st.warning("Não foi possível gerar a Fronteira Eficiente. Tente adicionar mais ativos ou ajustar restrições.")
         return
     vols, rets, weights = zip(*results)
     fig = go.Figure()
@@ -143,11 +129,9 @@ def plot_efficient_frontier(mu, cov, min_w, max_w, n_points=40, mark_portfolios=
         xaxis_title='Volatilidade Anualizada (%)', yaxis_title='Retorno Esperado Anualizado (%)')
     st.plotly_chart(fig, use_container_width=True)
 
-# --- Lógica Principal ---
 if run_analysis:
     st.header("Resultados da Análise")
 
-    # Processar entradas
     ativos_carteira_lista = [s.strip().upper() for s in ativos_input_str.split(',') if s.strip()]
     try:
         pesos_carteira_lista_pct = [float(p.strip()) for p in pesos_input_str.split(',') if p.strip()]
@@ -169,7 +153,6 @@ if run_analysis:
         st.error("Nenhum ativo fornecido para análise.")
         st.stop()
 
-    # Coleta de Dados
     with st.spinner("Baixando dados de preços e fundamentos..."):
         prices = download_prices(todos_ativos_analise, start="2015-01-01")
         df_fund = get_fundamentals_yahoo(todos_ativos_analise)
@@ -179,25 +162,21 @@ if run_analysis:
             st.write("**Dados Fundamentalistas:**")
             st.dataframe(df_fund)
 
-    # Métricas Avançadas
     with st.spinner("Calculando métricas avançadas (Value, F-Score, ARIMA, GARCH)..."):
         vc_scores, f_score, mu_arima, vol_garch = obter_metricas_avancadas(todos_ativos_analise, prices, df_fund)
         df_scores = pd.DataFrame({'Ticker': todos_ativos_analise, 'Quant Score': vc_scores.values})
         plot_quant_value_scores(df_scores)
 
-    # Construção dos retornos e covariância ajustados
     st.write("**Retornos esperados (ARIMA ajustado):**")
     st.dataframe(mu_arima)
     st.write("**Volatilidade (GARCH):**")
     st.dataframe(vol_garch)
 
-    # Ajuste institucional dos retornos (ponderação por value/fscore)
     mu_final = mu_arima * (1 + 0.3 * vc_scores) * (1 + 0.1 * f_score/9)
     mu_final = mu_final.fillna(0)
     vol_garch = vol_garch.fillna(vol_garch.mean())
-    cov_final = np.diag(vol_garch.values**2)  # Para demo, matriz diagonal
+    cov_final = np.diag(vol_garch.values**2)
 
-    # Pesos institucionais
     weights_current = []
     for t in todos_ativos_analise:
         if t in ativos_carteira_lista:
@@ -205,10 +184,15 @@ if run_analysis:
             weights_current.append(pesos_carteira_decimal[idx])
         else:
             weights_current.append(0.0)
-    min_w = [max(w-min_aloc_ativo, min_aloc_ativo) for w in weights_current]
-    max_w = [min(w+max_aloc_ativo, max_aloc_ativo) for w in weights_current]
+    min_w = [max(min_aloc_ativo, 0.0) for _ in todos_ativos_analise]
+    max_w = [max(max_aloc_ativo, min_aloc_ativo+0.01) for _ in todos_ativos_analise]
+    if sum(min_w) > 1.0:
+        st.warning("A soma das alocações mínimas excede 100%. Ajustando para 0.")
+        min_w = [0.0 for _ in todos_ativos_analise]
+    if sum(max_w) < 1.0:
+        st.warning("A soma das alocações máximas é menor que 100%. Ajustando para 1/n.")
+        max_w = [1.0/len(max_w) for _ in max_w]
 
-    # Otimização institucional
     with st.spinner("Otimizando portfólio institucional..."):
         pesos_otimizados = otimizar_portfolio_institucional(
             todos_ativos_analise, weights_current, min_w, max_w, mu_final, cov_final, risk_free=0.02
@@ -218,7 +202,6 @@ if run_analysis:
     st.write("**Pesos Otimizados:**")
     st.dataframe(pd.DataFrame({'Ativo': list(pesos_otimizados.keys()), 'Peso': list(pesos_otimizados.values())}))
 
-    # Métricas da carteira atual e otimizada
     def carteira_metrics(pesos, mu, cov, taxa_rf=0.02):
         w = np.array([pesos.get(t,0) for t in mu.index])
         ret = np.dot(w, mu)
@@ -247,7 +230,6 @@ if run_analysis:
     ]
     display_comparative_table(carteiras_para_comparacao)
 
-    # Fronteira eficiente
     with st.spinner("Gerando gráfico da fronteira eficiente..."):
         mark_portfolios = {
             "Atual": (vol_atual, ret_atual, "blue"),
@@ -255,7 +237,6 @@ if run_analysis:
         }
         plot_efficient_frontier(mu_final, cov_final, min_aloc_ativo, max_aloc_ativo, n_points=20, mark_portfolios=mark_portfolios)
 
-    # Novo aporte (simples: distribui conforme pesos otimizados)
     if novo_capital_input > 0:
         st.subheader("Sugestão de Alocação para Novo Aporte")
         carteira_final_valores = carteira_atual_composicao_valores.copy()
@@ -268,7 +249,6 @@ if run_analysis:
 else:
     st.info("Ajuste os parâmetros na barra lateral e clique em 'Executar Análise' para ver os resultados.")
 
-# --- Glossário e Explicações ---
 st.sidebar.markdown("---")
 st.sidebar.subheader("Glossário e Explicações")
 with st.sidebar.expander("Quant-Value"):
