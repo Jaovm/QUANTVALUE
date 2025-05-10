@@ -4,7 +4,6 @@ import statsmodels.api as sm
 from arch import arch_model
 
 def estimate_arima_forecast(prices, steps=252):
-    """Prevê retorno anualizado usando ARIMA para cada ativo"""
     returns = prices.pct_change().dropna()
     forecasts = {}
     for col in returns:
@@ -17,7 +16,6 @@ def estimate_arima_forecast(prices, steps=252):
     return pd.Series(forecasts)
 
 def estimate_garch_volatility(prices):
-    """Estima volatilidade anualizada via GARCH para cada ativo"""
     returns = prices.pct_change().dropna()
     annualized_vols = {}
     for col in returns:
