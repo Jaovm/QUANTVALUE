@@ -5,3 +5,4 @@ plotly
 yfinance
 matplotlib
 statsmodels
+arch
